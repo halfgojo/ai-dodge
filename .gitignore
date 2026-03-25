@@ -1,0 +1,30 @@
+# O2C graph DB
+otc_graph.db
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+env/
+
+# Node
+node_modules/
+frontend/dist/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# env
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db

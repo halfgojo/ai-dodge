@@ -1,0 +1,8 @@
+product_id,name,category,unit_price
+PROD001,Widget A,Hardware,150.00
+PROD002,Widget B,Hardware,275.00
+PROD003,Software License X,Software,1200.00
+PROD004,Maintenance Plan,Services,500.00
+PROD005,Component C,Hardware,89.99
+PROD006,Cloud Suite,Software,2400.00
+PROD007,Consulting Hours,Services,200.00
