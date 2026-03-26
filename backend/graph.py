@@ -72,9 +72,13 @@ def build_graph():
             
     # --- Billing / Invoices ---
     print("Loading Billing Documents...")
+    acct_to_inv = {}
     for row in query("SELECT billingDocument, billingDocumentType, totalNetAmount, transactionCurrency, creationDate, billingDocumentIsCancelled, soldToParty, companyCode, fiscalYear, accountingDocument FROM billing_document_headers"):
         inv_id = str(row['billingDocument'])
+        acct_doc = str(row['accountingDocument']) if row['accountingDocument'] else None
         G.add_node(f"INV-{inv_id}", type="Invoice", label=f"Inv {inv_id}", raw=row)
+        if acct_doc:
+            acct_to_inv[acct_doc] = inv_id
         
     # Map Delivery -> Invoice from billing items
     for row in query("SELECT DISTINCT billingDocument, referenceSdDocument FROM billing_document_items"):
@@ -101,13 +105,15 @@ def build_graph():
     # --- Payments ---
     print("Loading Payments...")
     seen_pay = set()
-    for row in query("SELECT accountingDocument, customer, amountInTransactionCurrency, transactionCurrency, postingDate, invoiceReference FROM payments_accounts_receivable"):
+    for row in query("SELECT accountingDocument, clearingAccountingDocument, customer, amountInTransactionCurrency, transactionCurrency, postingDate FROM payments_accounts_receivable"):
         pay_id = str(row['accountingDocument'])
         if pay_id not in seen_pay:
             G.add_node(f"PAY-{pay_id}", type="Payment", label=f"Pay {pay_id}", raw=row)
             seen_pay.add(pay_id)
-        inv_ref = str(row['invoiceReference'])
-        if inv_ref and f"INV-{inv_ref}" in G:
+        
+        clear_doc = str(row.get('clearingAccountingDocument', ''))
+        if clear_doc in acct_to_inv:
+            inv_ref = acct_to_inv[clear_doc]
             G.add_edge(f"INV-{inv_ref}", f"PAY-{pay_id}", label="SETTLED_BY")
 
     conn.close()

@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import ForceGraph2D from 'react-force-graph-2d';
-import { X, Network, Minimize2, Layers } from 'lucide-react';
+import { X, Network, Minimize2, Layers, Search } from 'lucide-react';
 
 const CHAT_WIDTH = 380;
 
@@ -20,6 +20,8 @@ export default function GraphCanvas({ graphData }) {
   const [selectedNode, setSelectedNode] = useState(null);
   const [expandedNode, setExpandedNode] = useState(null); // Track node isolated for expansion
   const [showGranularOverlay, setShowGranularOverlay] = useState(true); // Toggle text labels
+  const [hiddenTypes, setHiddenTypes] = useState(new Set()); // Track toggled legend types
+  const [searchQuery, setSearchQuery] = useState(''); // Text filter
   const [dimensions, setDimensions] = useState({ width: window.innerWidth - CHAT_WIDTH, height: window.innerHeight });
 
   useEffect(() => {
@@ -58,6 +60,15 @@ export default function GraphCanvas({ graphData }) {
     }
   }, []);
 
+  const toggleTypeVisibility = useCallback(type => {
+    setHiddenTypes(prev => {
+      const next = new Set(prev);
+      if (next.has(type)) next.delete(type);
+      else next.add(type);
+      return next;
+    });
+  }, []);
+
   const handleNodeClick = useCallback(node => {
     setSelectedNode(node);
     if (fgRef.current && !expandedNode) {
@@ -78,9 +89,41 @@ export default function GraphCanvas({ graphData }) {
     }
   }, [expandedNode, selectedNode]);
 
+  const searchMatchSet = useMemo(() => {
+    if (!searchQuery.trim()) return null;
+    
+    const query = searchQuery.toLowerCase();
+    const primaryMatches = new Set();
+    
+    graphData.nodes.forEach(node => {
+      const lbl = String(node.label || node.id).toLowerCase();
+      const typ = String(node.type).toLowerCase();
+      if (lbl.includes(query) || typ.includes(query)) {
+        primaryMatches.add(node.id);
+      }
+    });
+
+    const expandedMatches = new Set(primaryMatches);
+    graphData.links.forEach(l => {
+      const srcId = typeof l.source === 'object' ? l.source.id : l.source;
+      const tgtId = typeof l.target === 'object' ? l.target.id : l.target;
+      if (primaryMatches.has(srcId)) expandedMatches.add(tgtId);
+      if (primaryMatches.has(tgtId)) expandedMatches.add(srcId);
+    });
+
+    return expandedMatches;
+  }, [graphData, searchQuery]);
+
+  const isNodeVisible = useCallback((node) => {
+    if (!node) return false;
+    if (hiddenTypes.has(node.type)) return false;
+    if (expandedSet && !expandedSet.has(node.id)) return false;
+    if (searchMatchSet && !searchMatchSet.has(node.id)) return false;
+    return true;
+  }, [hiddenTypes, expandedSet, searchMatchSet]);
+
   const nodeCanvasObject = useCallback((node, ctx, globalScale) => {
-    // If we are expanding a node, hide all other unconnected nodes
-    if (expandedSet && !expandedSet.has(node.id)) return;
+    if (!isNodeVisible(node)) return;
 
     const isSelected = selectedNode && node.id === selectedNode.id;
     const color = TYPE_COLORS[node.type] || '#94a3b8';
@@ -147,6 +190,16 @@ export default function GraphCanvas({ graphData }) {
       </div>
 
       <div style={{ position: 'absolute', top: '16px', right: '16px', display: 'flex', gap: '8px', zIndex: 10 }}>
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+          <Search size={14} style={{ position: 'absolute', left: '10px', color: '#9ca3af' }} />
+          <input 
+            type="text" 
+            placeholder="Search nodes..." 
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            style={{ padding: '8px 12px 8px 30px', background: '#fff', color: '#111827', border: '1px solid #e5e7eb', borderRadius: '6px', fontSize: '0.85rem', outline: 'none', width: '220px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}
+          />
+        </div>
         <button 
           onClick={handleMinimize}
           style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 12px', background: '#fff', color: '#111827', border: '1px solid #e5e7eb', borderRadius: '6px', fontSize: '0.85rem', fontWeight: 500, cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}
@@ -157,7 +210,7 @@ export default function GraphCanvas({ graphData }) {
           onClick={() => setShowGranularOverlay(!showGranularOverlay)}
           style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 12px', background: '#111827', color: '#fff', border: '1px solid #111827', borderRadius: '6px', fontSize: '0.85rem', fontWeight: 500, cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}
         >
-          <Layers size={14} /> {showGranularOverlay ? 'Hide Granular Overlay' : 'Show Granular Overlay'}
+          <Layers size={14} /> {showGranularOverlay ? 'Hide Labels' : 'Show Labels'}
         </button>
       </div>
 
@@ -167,16 +220,21 @@ export default function GraphCanvas({ graphData }) {
         height={dimensions.height}
         graphData={graphData}
         nodeCanvasObject={nodeCanvasObject}
-        nodeLabel={node => expandedSet && !expandedSet.has(node.id) ? '' : `${node.type}: ${node.label || node.id}`}
-        nodeVisibility={node => !expandedSet || expandedSet.has(node.id)}
+        nodeLabel={node => !isNodeVisible(node) ? '' : `${node.type}: ${node.label || node.id}`}
+        nodeVisibility={isNodeVisible}
         linkVisibility={link => {
+          const srcNode = typeof link.source === 'object' ? link.source : null;
+          const tgtNode = typeof link.target === 'object' ? link.target : null;
+          if (srcNode && !isNodeVisible(srcNode)) return false;
+          if (tgtNode && !isNodeVisible(tgtNode)) return false;
+
           if (!expandedSet) return true;
           const srcId = typeof link.source === 'object' ? link.source.id : link.source;
           const tgtId = typeof link.target === 'object' ? link.target.id : link.target;
           return srcId === expandedNode.id || tgtId === expandedNode.id;
         }}
         nodePointerAreaPaint={(node, color, ctx) => {
-          if (expandedSet && !expandedSet.has(node.id)) return; // Ignore hover/clicks on hidden nodes
+          if (!isNodeVisible(node)) return; // Ignore hover/clicks on hidden nodes
           ctx.beginPath();
           ctx.arc(node.x, node.y, 12, 0, 2 * Math.PI);
           ctx.fillStyle = color;
@@ -205,11 +263,28 @@ export default function GraphCanvas({ graphData }) {
         backgroundColor="#f7f9fc"
       />
 
-      <div className="graph-legend">
+      <div className="graph-legend" style={{ zIndex: 10, display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
         {legendItems.map(({ type, color, count }) => (
-          <div className="legend-item" key={type}>
-            <div className="legend-dot" style={{ backgroundColor: color }} />
-            {type} <span style={{ color: '#9ca3af', fontSize: '0.65rem', marginLeft: '2px' }}>({count})</span>
+          <div 
+            className="legend-item" 
+            key={type}
+            onClick={() => toggleTypeVisibility(type)}
+            style={{ 
+              cursor: 'pointer',
+              opacity: hiddenTypes.has(type) ? 0.4 : 1,
+              transition: 'opacity 0.2s',
+              display: 'flex',
+              alignItems: 'center',
+              background: '#fff',
+              padding: '4px 8px',
+              borderRadius: '4px',
+              border: '1px solid #e5e7eb',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+            }}
+          >
+            <div className="legend-dot" style={{ backgroundColor: color, width: '10px', height: '10px', borderRadius: '50%', marginRight: '6px' }} />
+            <span style={{ fontSize: '0.75rem', fontWeight: 500, color: '#374151' }}>{type}</span>
+            <span style={{ color: '#9ca3af', fontSize: '0.65rem', marginLeft: '4px' }}>({count})</span>
           </div>
         ))}
       </div>
