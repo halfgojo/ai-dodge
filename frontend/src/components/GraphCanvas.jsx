@@ -18,6 +18,7 @@ const TYPE_COLORS = {
 export default function GraphCanvas({ graphData }) {
   const fgRef = useRef();
   const [selectedNode, setSelectedNode] = useState(null);
+  const [expandedNode, setExpandedNode] = useState(null); // Track node isolated for expansion
   const [dimensions, setDimensions] = useState({ width: window.innerWidth - CHAT_WIDTH, height: window.innerHeight });
 
   useEffect(() => {
@@ -27,24 +28,53 @@ export default function GraphCanvas({ graphData }) {
   }, []);
 
   useEffect(() => {
-    if (graphData.nodes.length > 0 && fgRef.current) {
+    if (graphData.nodes.length > 0 && fgRef.current && !expandedNode) {
       setTimeout(() => fgRef.current.zoomToFit(400, 60), 500);
     }
-  }, [graphData]);
+  }, [graphData, expandedNode]);
+
+  const expandedSet = useMemo(() => {
+    if (!expandedNode) return null;
+    
+    const neighborIds = new Set();
+    neighborIds.add(expandedNode.id);
+    
+    graphData.links.forEach(l => {
+      const srcId = typeof l.source === 'object' ? l.source.id : l.source;
+      const tgtId = typeof l.target === 'object' ? l.target.id : l.target;
+      if (srcId === expandedNode.id || tgtId === expandedNode.id) {
+        neighborIds.add(srcId);
+        neighborIds.add(tgtId);
+      }
+    });
+
+    return neighborIds;
+  }, [graphData.links, expandedNode]);
 
   const handleNodeClick = useCallback(node => {
     setSelectedNode(node);
-    if (fgRef.current) {
+    if (fgRef.current && !expandedNode) {
       fgRef.current.centerAt(node.x, node.y, 800);
       fgRef.current.zoom(3, 1000);
     }
-  }, []);
+  }, [expandedNode]);
 
   const handleBackgroundClick = useCallback(() => {
     setSelectedNode(null);
   }, []);
 
+  const toggleExpand = useCallback(() => {
+    if (expandedNode && selectedNode && expandedNode.id === selectedNode.id) {
+      setExpandedNode(null); // Reset
+    } else {
+      setExpandedNode(selectedNode); // Expand this node
+    }
+  }, [expandedNode, selectedNode]);
+
   const nodeCanvasObject = useCallback((node, ctx, globalScale) => {
+    // If we are expanding a node, hide all other unconnected nodes
+    if (expandedSet && !expandedSet.has(node.id)) return;
+
     const isSelected = selectedNode && node.id === selectedNode.id;
     const color = TYPE_COLORS[node.type] || '#94a3b8';
     const size = isSelected ? 14 : 8;
@@ -115,18 +145,35 @@ export default function GraphCanvas({ graphData }) {
         height={dimensions.height}
         graphData={graphData}
         nodeCanvasObject={nodeCanvasObject}
-        nodeLabel={node => `${node.type}: ${node.label || node.id}`}
+        nodeLabel={node => expandedSet && !expandedSet.has(node.id) ? '' : `${node.type}: ${node.label || node.id}`}
+        nodeVisibility={node => !expandedSet || expandedSet.has(node.id)}
+        linkVisibility={link => {
+          if (!expandedSet) return true;
+          const srcId = typeof link.source === 'object' ? link.source.id : link.source;
+          const tgtId = typeof link.target === 'object' ? link.target.id : link.target;
+          return srcId === expandedNode.id || tgtId === expandedNode.id;
+        }}
         nodePointerAreaPaint={(node, color, ctx) => {
+          if (expandedSet && !expandedSet.has(node.id)) return; // Ignore hover/clicks on hidden nodes
           ctx.beginPath();
           ctx.arc(node.x, node.y, 12, 0, 2 * Math.PI);
           ctx.fillStyle = color;
           ctx.fill();
         }}
-        linkColor={() => 'rgba(168, 196, 224, 0.5)'}
-        linkWidth={1.2}
+        linkColor={link => {
+          if (expandedSet) return 'rgba(74, 144, 217, 0.9)'; // Highlight the active connection line
+          return 'rgba(168, 196, 224, 0.5)';
+        }}
+        linkWidth={link => {
+          if (expandedSet) return 2.5; // Thicker lines when expanded
+          return 1.2;
+        }}
         linkDirectionalArrowLength={4}
         linkDirectionalArrowRelPos={1}
-        linkDirectionalArrowColor={() => 'rgba(74, 144, 217, 0.4)'}
+        linkDirectionalArrowColor={link => {
+          if (expandedSet) return 'rgba(74, 144, 217, 0.9)';
+          return 'rgba(74, 144, 217, 0.4)';
+        }}
         onNodeClick={handleNodeClick}
         onBackgroundClick={handleBackgroundClick}
         enableNodeDrag={true}
@@ -175,8 +222,14 @@ export default function GraphCanvas({ graphData }) {
                 );
               })}
           </div>
-          <div className="connections-badge">
-            🔗 {nodeConnections} connection{nodeConnections !== 1 ? 's' : ''}
+          <div className="connections-badge" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
+            <span>🔗 {nodeConnections} connection{nodeConnections !== 1 ? 's' : ''}</span>
+            <button 
+              onClick={toggleExpand}
+              style={{ padding: '6px 12px', background: '#4a90d9', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600 }}
+            >
+              {expandedNode && expandedNode.id === selectedNode.id ? 'Show Full Graph' : 'Expand Node'}
+            </button>
           </div>
         </div>
       )}
