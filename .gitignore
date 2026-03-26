@@ -1,6 +1,6 @@
 backend/venv/
 backend/__pycache__/
-backend/sqlite.db
+
 backend/sap-order-to-cash-dataset.zip
 backend/sap-o2c-data/
 frontend/node_modules/
