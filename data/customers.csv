@@ -1,9 +1,0 @@
-customer_id,name,email,segment,region,created_at
-CUST001,Acme Corp,acme@example.com,Enterprise,North America,2024-01-15
-CUST002,Beta Industries,beta@example.com,Mid-Market,Europe,2024-02-20
-CUST003,Gamma Solutions,gamma@example.com,SMB,Asia Pacific,2024-03-10
-CUST004,Delta Manufacturing,delta@example.com,Enterprise,North America,2024-01-28
-CUST005,Epsilon Trading,epsilon@example.com,Mid-Market,Europe,2024-04-05
-CUST006,Zeta Logistics,zeta@example.com,Enterprise,Asia Pacific,2024-02-14
-CUST007,Eta Pharma,eta@example.com,SMB,North America,2024-05-01
-CUST008,Theta Electronics,theta@example.com,Mid-Market,Europe,2024-03-22

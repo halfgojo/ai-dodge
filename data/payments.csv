@@ -1,6 +1,0 @@
-payment_id,invoice_id,payment_date,amount,method
-PAY001,INV001,2024-06-28,3250.00,Wire Transfer
-PAY002,INV002,2024-07-10,1200.00,Credit Card
-PAY003,INV005,2024-08-05,750.00,ACH
-PAY004,INV006,2024-08-20,2400.00,Wire Transfer
-PAY005,INV008,2024-09-10,89.99,Credit Card
