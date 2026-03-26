@@ -52,7 +52,7 @@ KEY RELATIONSHIPS (foreign key mappings):
 - billing_document_items.referenceSdDocument -> outbound_delivery_headers.deliveryDocument
 - billing_document_items.billingDocument -> billing_document_headers.billingDocument
 - journal_entry_items_accounts_receivable.referenceDocument -> billing_document_headers.billingDocument
-- payments_accounts_receivable.invoiceReference -> billing_document_headers.billingDocument
+- payments_accounts_receivable.clearingAccountingDocument -> billing_document_headers.accountingDocument
 - product_descriptions.product -> products.product
 
 FLOW: Sales Order -> Delivery -> Billing Document -> Journal Entry / Payment
@@ -80,6 +80,26 @@ A: SELECT DISTINCT soh.salesOrder, soh.soldToParty, soh.salesOrderDate
    FROM sales_order_headers soh
    JOIN outbound_delivery_items odi ON soh.salesOrder = odi.referenceSdDocument
    LEFT JOIN billing_document_items bdi ON odi.deliveryDocument = bdi.referenceSdDocument
+   WHERE bdi.billingDocument IS NULL
+   LIMIT 50
+
+Q: Which products have the highest total revenue across all paid invoices?
+A: SELECT pd.productDescription, SUM(bdi.netAmount) AS total_revenue
+   FROM product_descriptions pd
+   JOIN sales_order_items soi ON pd.product = soi.material
+   JOIN outbound_delivery_items odi ON soi.salesOrder = odi.referenceSdDocument
+   JOIN billing_document_items bdi ON odi.deliveryDocument = bdi.referenceSdDocument
+   JOIN billing_document_headers bdh ON bdi.billingDocument = bdh.billingDocument
+   JOIN payments_accounts_receivable pay ON bdh.accountingDocument = pay.clearingAccountingDocument
+   WHERE pd.language = 'EN'
+   GROUP BY pd.productDescription
+   ORDER BY total_revenue DESC
+   LIMIT 10
+
+Q: Find all deliveries that are completed but don't have an invoice yet.
+A: SELECT odh.deliveryDocument, odh.creationDate
+   FROM outbound_delivery_headers odh
+   LEFT JOIN billing_document_items bdi ON odh.deliveryDocument = bdi.referenceSdDocument
    WHERE bdi.billingDocument IS NULL
    LIMIT 50
 
