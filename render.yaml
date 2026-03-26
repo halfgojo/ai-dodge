@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: dodge-ai
+    env: python
+    # We install the frontend node dependencies, build the static React files,
+    # then install the backend python dependencies so FastAPI can serve them.
+    buildCommand: "npm install --prefix frontend && npm run build --prefix frontend && pip install -r backend/requirements.txt"
+    # We navigate into backend and start uvicorn on the auto-assigned $PORT
+    startCommand: "cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: GROQ_API_KEY
+        # Tell them they need to provide this in the Render dashboard
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: PYTHON_VERSION
+        value: 3.11.10
