@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import ForceGraph2D from 'react-force-graph-2d';
-import { X, Network } from 'lucide-react';
+import { X, Network, Minimize2, Layers } from 'lucide-react';
 
 const CHAT_WIDTH = 380;
 
@@ -19,6 +19,7 @@ export default function GraphCanvas({ graphData }) {
   const fgRef = useRef();
   const [selectedNode, setSelectedNode] = useState(null);
   const [expandedNode, setExpandedNode] = useState(null); // Track node isolated for expansion
+  const [showGranularOverlay, setShowGranularOverlay] = useState(true); // Toggle text labels
   const [dimensions, setDimensions] = useState({ width: window.innerWidth - CHAT_WIDTH, height: window.innerHeight });
 
   useEffect(() => {
@@ -50,6 +51,12 @@ export default function GraphCanvas({ graphData }) {
 
     return neighborIds;
   }, [graphData.links, expandedNode]);
+
+  const handleMinimize = useCallback(() => {
+    if (fgRef.current) {
+      fgRef.current.zoomToFit(400, 60);
+    }
+  }, []);
 
   const handleNodeClick = useCallback(node => {
     setSelectedNode(node);
@@ -101,7 +108,7 @@ export default function GraphCanvas({ graphData }) {
     ctx.stroke();
 
     // Label at zoom
-    if (globalScale > 1.0) {
+    if (showGranularOverlay && globalScale > 1.0) {
       const label = node.label || node.id;
       const fontSize = Math.max(11 / globalScale, 3);
       ctx.font = `500 ${fontSize}px Inter, sans-serif`;
@@ -110,7 +117,7 @@ export default function GraphCanvas({ graphData }) {
       ctx.fillStyle = isSelected ? '#1a1a2e' : '#6b7280';
       ctx.fillText(label, node.x, node.y + size + 3);
     }
-  }, [selectedNode]);
+  }, [selectedNode, expandedSet, showGranularOverlay]);
 
   const nodeConnections = useMemo(() => {
     if (!selectedNode) return 0;
@@ -134,9 +141,24 @@ export default function GraphCanvas({ graphData }) {
   }, [graphData.nodes]);
 
   return (
-    <div className="graph-pane">
+    <div className="graph-pane" style={{ position: 'relative' }}>
       <div className="graph-header">
         <h1><Network size={18} /> <span>Mapping</span> / Order to Cash</h1>
+      </div>
+
+      <div style={{ position: 'absolute', top: '16px', right: '16px', display: 'flex', gap: '8px', zIndex: 10 }}>
+        <button 
+          onClick={handleMinimize}
+          style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 12px', background: '#fff', color: '#111827', border: '1px solid #e5e7eb', borderRadius: '6px', fontSize: '0.85rem', fontWeight: 500, cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}
+        >
+          <Minimize2 size={14} /> Minimize
+        </button>
+        <button 
+          onClick={() => setShowGranularOverlay(!showGranularOverlay)}
+          style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 12px', background: '#111827', color: '#fff', border: '1px solid #111827', borderRadius: '6px', fontSize: '0.85rem', fontWeight: 500, cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}
+        >
+          <Layers size={14} /> {showGranularOverlay ? 'Hide Granular Overlay' : 'Show Granular Overlay'}
+        </button>
       </div>
 
       <ForceGraph2D
