@@ -22,14 +22,14 @@ def build_graph():
 
     # --- Customers ---
     print("Loading Customers...")
-    for row in query("SELECT businessPartner, customer, businessPartnerFullName, businessPartnerCategory FROM business_partners"):
+    for row in query("SELECT * FROM business_partners"):
         cid = str(row['customer'] or row['businessPartner'])
         G.add_node(f"CUST-{cid}", type="Customer", label=row['businessPartnerFullName'] or f"Customer {cid}", raw=row)
 
     # --- Products ---
     print("Loading Products...")
     for row in query("""
-        SELECT p.product, pd.productDescription, p.productType, p.productGroup, p.baseUnit, p.division
+        SELECT p.*, pd.productDescription 
         FROM products p
         LEFT JOIN product_descriptions pd ON p.product = pd.product AND pd.language = 'EN'
     """):
@@ -39,7 +39,7 @@ def build_graph():
 
     # --- Sales Orders ---
     print("Loading Sales Orders...")
-    for row in query("SELECT salesOrder, soldToParty, totalNetAmount, transactionCurrency, creationDate, overallDeliveryStatus, overallOrdReltdBillgStatus FROM sales_order_headers"):
+    for row in query("SELECT * FROM sales_order_headers"):
         so_id = str(row['salesOrder'])
         G.add_node(f"SO-{so_id}", type="SalesOrder", label=f"SO {so_id}", raw=row)
         customer_id = str(row['soldToParty'])
@@ -48,7 +48,7 @@ def build_graph():
 
     # --- Sales Order Items -> Product edges ---
     print("Loading Sales Order Items...")
-    for row in query("SELECT salesOrder, salesOrderItem, material, netAmount, requestedQuantity FROM sales_order_items"):
+    for row in query("SELECT * FROM sales_order_items"):
         so_id = str(row['salesOrder'])
         mat_id = str(row['material'])
         item_id = f"SOI-{so_id}-{row['salesOrderItem']}"
@@ -59,7 +59,7 @@ def build_graph():
 
     # --- Deliveries ---
     print("Loading Deliveries...")
-    for row in query("SELECT deliveryDocument, creationDate, overallGoodsMovementStatus, overallPickingStatus, shippingPoint FROM outbound_delivery_headers"):
+    for row in query("SELECT * FROM outbound_delivery_headers"):
         del_id = str(row['deliveryDocument'])
         G.add_node(f"DEL-{del_id}", type="Delivery", label=f"Del {del_id}", raw=row)
     
@@ -73,7 +73,7 @@ def build_graph():
     # --- Billing / Invoices ---
     print("Loading Billing Documents...")
     acct_to_inv = {}
-    for row in query("SELECT billingDocument, billingDocumentType, totalNetAmount, transactionCurrency, creationDate, billingDocumentIsCancelled, soldToParty, companyCode, fiscalYear, accountingDocument FROM billing_document_headers"):
+    for row in query("SELECT * FROM billing_document_headers"):
         inv_id = str(row['billingDocument'])
         acct_doc = str(row['accountingDocument']) if row['accountingDocument'] else None
         G.add_node(f"INV-{inv_id}", type="Invoice", label=f"Inv {inv_id}", raw=row)
@@ -93,7 +93,7 @@ def build_graph():
     # --- Journal Entries ---
     print("Loading Journal Entries...")
     seen_je = set()
-    for row in query("SELECT accountingDocument, companyCode, fiscalYear, referenceDocument, glAccount, amountInCompanyCodeCurrency, postingDate, customer FROM journal_entry_items_accounts_receivable"):
+    for row in query("SELECT * FROM journal_entry_items_accounts_receivable"):
         je_id = str(row['accountingDocument'])
         if je_id not in seen_je:
             G.add_node(f"JE-{je_id}", type="JournalEntry", label=f"JE {je_id}", raw=row)
@@ -105,7 +105,7 @@ def build_graph():
     # --- Payments ---
     print("Loading Payments...")
     seen_pay = set()
-    for row in query("SELECT accountingDocument, clearingAccountingDocument, customer, amountInTransactionCurrency, transactionCurrency, postingDate FROM payments_accounts_receivable"):
+    for row in query("SELECT * FROM payments_accounts_receivable"):
         pay_id = str(row['accountingDocument'])
         if pay_id not in seen_pay:
             G.add_node(f"PAY-{pay_id}", type="Payment", label=f"Pay {pay_id}", raw=row)

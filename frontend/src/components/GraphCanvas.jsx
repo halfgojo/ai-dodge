@@ -258,8 +258,6 @@ export default function GraphCanvas({ graphData }) {
         onBackgroundClick={handleBackgroundClick}
         enableNodeDrag={true}
         d3VelocityDecay={0.4}
-        cooldownTicks={200}
-        warmupTicks={100}
         backgroundColor="#f7f9fc"
       />
 
