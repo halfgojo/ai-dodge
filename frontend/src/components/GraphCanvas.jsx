@@ -114,6 +114,18 @@ export default function GraphCanvas({ graphData }) {
     return expandedMatches;
   }, [graphData, searchQuery]);
 
+  // Compute how many connections each node has so we can scale its visual size dynamically
+  const nodeDegrees = useMemo(() => {
+    const degrees = {};
+    graphData.links.forEach((l) => {
+      const srcId = typeof l.source === 'object' ? l.source.id : l.source;
+      const tgtId = typeof l.target === 'object' ? l.target.id : l.target;
+      degrees[srcId] = (degrees[srcId] || 0) + 1;
+      degrees[tgtId] = (degrees[tgtId] || 0) + 1;
+    });
+    return degrees;
+  }, [graphData.links]);
+
   const isNodeVisible = useCallback((node) => {
     if (!node) return false;
     if (hiddenTypes.has(node.type)) return false;
@@ -127,7 +139,11 @@ export default function GraphCanvas({ graphData }) {
 
     const isSelected = selectedNode && node.id === selectedNode.id;
     const color = TYPE_COLORS[node.type] || '#94a3b8';
-    const size = isSelected ? 14 : 8;
+    
+    // Dynamic Size: base 5, plus 1 point for every 3 connections, up to a max huge radius of 26
+    const degree = nodeDegrees[node.id] || 0;
+    const computedBase = Math.min(26, 5 + Math.floor(degree / 3));
+    const size = isSelected ? computedBase + 6 : computedBase;
     
     // Glow for selected
     if (isSelected) {
@@ -235,8 +251,10 @@ export default function GraphCanvas({ graphData }) {
         }}
         nodePointerAreaPaint={(node, color, ctx) => {
           if (!isNodeVisible(node)) return; // Ignore hover/clicks on hidden nodes
+          const degree = nodeDegrees[node.id] || 0;
+          const computedBase = Math.min(26, 5 + Math.floor(degree / 3));
           ctx.beginPath();
-          ctx.arc(node.x, node.y, 12, 0, 2 * Math.PI);
+          ctx.arc(node.x, node.y, computedBase + 4, 0, 2 * Math.PI); // Larger click zone!
           ctx.fillStyle = color;
           ctx.fill();
         }}
